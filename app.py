@@ -8,6 +8,7 @@ import matplotlib
 import pandas as pd
 import shapely.wkt
 import shapely.geometry
+import shapely.ops
 
 def normalize(arr):
  arr_min = 255
@@ -34,7 +35,15 @@ def scale_percentile(matrix):
     matrix = np.reshape(matrix, orig_shape)
     matrix = matrix.clip(0,1)
     return matrix
-
+def funk(zi):
+ for name in zi.namelist():
+  #print(name)
+  if name == "three_band/6120_2_2.tif":
+   fl = zi.open(name)
+   P = tiff.imread(fl)
+   fl.close()
+   #print(P)
+   return P  
 zi = zipfile.ZipFile("dstl-satellite-imagery-feature-detection/three_band.zip")
 #print(zi.namelist())
 #P = tiff.imread("dstl-satellite-imagery-feature-detection/6010_0_0.tif")
@@ -93,27 +102,64 @@ build = train.loc[train["ClassType"] == 1]
 zigr = zipfile.ZipFile("dstl-satellite-imagery-feature-detection/grid_sizes.csv.zip")
 fl = zigr.open(zigr.namelist()[0])
 gri = pd.read_csv(fl)
+fl.close()
 
-
+P = funk(zi)
+#print(P)
+P = P.transpose([1,2,0])
+W = P.shape[1]
+H = P.shape[0]
+Ws = W * W/(W+1)
+Hs = H * H/(H+1)
+print(gri["Unnamed: 0"])
+xmax = 0
+ymin = 0
+for i in range(0, len(gri["Unnamed: 0"])):
+ if gri["Unnamed: 0"][i] == "6120_2_2":
+  print("rado")
+  xmax = gri["Xmax"][i]
+  ymin = gri["Ymin"][i]
+  
+xn = Ws/xmax
+yn = Hs/ymin
+nor = scale_percentile(P)
+plt.imshow(nor)
+#plt.show()
+print(P.shape)
 print(build)
 poly = [shapely.wkt.loads(p) for p in build["MultipolygonWKT"]]
 #print(poly[1])
 mult = shapely.geometry.MultiPolygon(poly[1])
 #x,y = mult.exterior.xy
 #plt.plot(x,y)
+print(gri)
+lit = []
+for geom in mult.geoms:
+ lit.append(shapely.affinity.scale(geom, xfact = xn, yfact = yn, origin = (0,0)))
+mch = shapely.ops.cascaded_union(lit)
 
- 
-
-for geom in mult.geoms:    
+for geom in mch.geoms:    
  xs, ys = geom.exterior.xy    
  #plt.fill(xs, ys, alpha=0.5, fc='r', ec='none')
  #plt.imshow([xs,ys])
  plt.fill(xs, ys, facecolor='none', edgecolor='purple', linewidth=1)
 plt.show()
 
-ttt = shapely.geometry.Polygon([(1, 1), (2, 1), (2, 2)])
+ttt = shapely.geometry.Polygon([(-1, 1), (2, 1), (2, 2)])
+ttp = shapely.geometry.Polygon([(3, 1), (4, 1), (4, 2), (3, 2)])
 ttd = shapely.affinity.scale(ttt, xfact = 2.0, yfact = 3.2, origin = (0,0))
-
+ttpd = shapely.affinity.scale(ttp, xfact = 2.0, yfact = 3.2, origin = (0,0))
 xs, ys = ttd.exterior.xy
 plt.fill(xs,ys, facecolor = 'red', edgecolor='red')
+xs, ys = ttpd.exterior.xy
+plt.fill(xs,ys, facecolor = 'blue', edgecolor='blue')
+plt.show()
+li = []
+mmm = shapely.geometry.MultiPolygon([ttt,ttp])
+for geom in mmm.geoms:
+ li.append(shapely.affinity.scale(geom, xfact = 2.0, yfact = 3.2, origin = (0,0)))
+mch = shapely.ops.cascaded_union(li)
+for geom in mch.geoms:
+ xs, ys = geom.exterior.xy
+ plt.fill(xs,ys, facecolor = 'blue', edgecolor='blue')
 plt.show()
