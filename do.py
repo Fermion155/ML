@@ -163,20 +163,30 @@ def create_unet_model(W, H, input_ch ,output_ch):
  trconv5 = tf.keras.layers.Concatenate()([conv1, trconv5]) 
  
    # This is the last layer of the model
- last = tf.keras.layers.Conv2DTranspose(output_ch, 3, strides=1, padding='same')
+ last = tf.keras.layers.Conv2DTranspose(output_ch, 3, strides=1, padding='same', activation='softmax')
  last = last(trconv5)
  model = tf.keras.Model(inputs = inputs, outputs = last)
  #tf.keras.utils.plot_model(model, show_shapes=True, dpi=64)
  print("OK")
  return model
 def create_mask(pred_mask):
-    print(pred_mask[0][0][0])
-    pred_mask = tf.argmax(pred_mask, axis=-1)
-    print(pred_mask[0][0])
-    print("cia")
-    pred_mask = pred_mask[..., tf.newaxis]
-    print(pred_mask[0][0])
-    return pred_mask[0]
+ print(pred_mask[0][0][0])
+ pred_new = tf.argmax(pred_mask, axis=-1)
+ print(pred_mask[0][0])
+ print("cia")
+ pred_new = pred_new[..., tf.newaxis]
+ print(pred_mask[0][0])
+ """nump = pred_new.numpy()
+ for i in range(0, len(pred_mask[0])):
+  for j in range(0, len(pred_mask[0][i])):
+   #if pred_mask[0][i][j][4] > 0.001:
+    #nump[0][i][j][0] = 4
+   #elif pred_mask[0][i][j][3] > 0.001:
+    #nump[0][i][j][0] = 3
+   if pred_mask[0][i][j][2] > 0.008:
+    nump[0][i][j][0] = 2
+ pred_new = tf.convert_to_tensor(nump, np.float32)"""
+ return pred_new[0]
 
 
 zi = zipfile.ZipFile("dstl-satellite-imagery-feature-detection/three_band.zip")
@@ -190,14 +200,14 @@ train = pd.read_csv(fl)
 fl.close()
 #print(train["MultipolygonWKT"][0])
 
-bui = train.loc[train["ClassType"] == 1]  #get only buildings
-build = bui.loc[train["ImageId"] == "6120_2_3"]
+#bui = train.loc[train["ClassType"] == 1]  #get only buildings
+#build = bui.loc[train["ImageId"] == "6120_2_3"]
 #read grid sizes
-zigr = zipfile.ZipFile("dstl-satellite-imagery-feature-detection/grid_sizes.csv.zip")
+#zigr = zipfile.ZipFile("dstl-satellite-imagery-feature-detection/grid_sizes.csv.zip")
 
-fl = zigr.open(zigr.namelist()[0])
-gri = pd.read_csv(fl)
-fl.close()
+#fl = zigr.open(zigr.namelist()[0])
+#gri = pd.read_csv(fl)
+#fl.close()
 #read images
 """train_images = {}
 l = 0
@@ -211,15 +221,17 @@ for i in range(0, len(build["ImageId"])*10, 10):
  #print("cia")
  train_images[key] = readimage("three_band/" + key + ".tif")
  #print(i)"""
+ 
 image = {}
 polygons = {}
-image["6120_2_3"] = readimage("three_band/6120_2_3.tif")
-print(build)
-p = shapely.wkt.loads(build["MultipolygonWKT"][10])
-smt = shapely.geometry.Polygon(p)
-polygons["6120_2_3"] = shapely.geometry.MultiPolygon([p])
+image["6120_2_2"] = readimage("three_band/6120_2_2.tif")
+plt.imshow(image["6120_2_2"])
+#print(build)
+#p = shapely.wkt.loads(build["MultipolygonWKT"][10])
+#smt = shapely.geometry.Polygon(p)
+#polygons["6120_2_3"] = shapely.geometry.MultiPolygon([p])
 poly_pix = {}
-for key in polygons:
+"""for key in polygons:
  #print(key)
  W = image[key].shape[1]
  H = image[key].shape[0]
@@ -238,15 +250,15 @@ for key in polygons:
  for geom in polygons[key].geoms:
   tarp.append(shapely.affinity.scale(geom, xfact = xn, yfact = yn, origin = (0,0)))
  poly_pix[key] = shapely.ops.cascaded_union(tarp)
-  
+ """
 masks = {}
-for key in image:
+#for key in image:
  #print(train_images[key].shape)
- masks[key] = np.array([pix_to_masks(image[key], poly_pix[key])]).transpose([1,2,0])
+ #masks[key] = np.array([pix_to_masks(image[key], poly_pix[key])]).transpose([1,2,0])
 W = 3348
 #H = 3391
 H = 3390
-masks_numpy = []
+#masks_numpy = []
 
 W = 3348
 H = 3388
@@ -254,9 +266,9 @@ train_images_numpy = []
 
 for key in image:
  im = re_shape(image[key], W, H)
- train_images_numpy.append(im[0:W//4, 0:H//4])
- ma = re_shape(masks[key], W, H)
- masks_numpy.append(ma[0:W//4, 0:H//4])
+ train_images_numpy.append(im[W//4:2*W//4, 0:H//4])
+ #ma = re_shape(masks[key], W, H)
+ #masks_numpy.append(ma[0:W//4, 0:H//4])
 """ train_images_numpy.append(im[W//4:2*W//4, 0:H//4])
  train_images_numpy.append(im[2*W//4:3*W//4, 0:H//4])
  train_images_numpy.append(im[3*W//4:W, 0:H//4])
@@ -293,7 +305,7 @@ del masks"""
 del image
 del masks
 train_images_numpy = np.array(train_images_numpy)
-masks_numpy = np.array(masks_numpy)  
+#masks_numpy = np.array(masks_numpy)  
   
 #plt.figure(figsize=(10,10))  
 
@@ -332,12 +344,13 @@ model.fit(train_images_numpy, masks_numpy, 1, epochs=EPOCHS)
 
 model.save('saved_model/my_model')"""
 new_model = tf.keras.models.load_model('saved_model/my_model')
+tf.keras.utils.plot_model(new_model, show_shapes=True, dpi=64)
 mas = new_model.predict(train_images_numpy)
+print(mas.shape)
 plt.figure(figsize=(10,10)) 
-plt.subplot(1,3, 1)
+plt.subplot(1,2, 1)
 plt.imshow(train_images_numpy[0])
-plt.subplot(1,3, 2)
-plt.imshow(masks_numpy[0])
-plt.subplot(1,3, 3)
+#plt.imshow(masks_numpy[0])
+plt.subplot(1,2, 2)
 plt.imshow(tf.keras.preprocessing.image.array_to_img(create_mask(mas)))
 plt.show()
