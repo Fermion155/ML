@@ -9,6 +9,7 @@ import shapely.wkt
 import shapely.geometry
 import shapely.ops
 import os
+from datetime import datetime
 import pydot
 import pydotplus
 from pydotplus import graphviz
@@ -136,6 +137,19 @@ def getpolygons(build, x, train_images, gri, numberOfObjects):
    poly_pix[key] = sth
  return poly_pix
 
+def myIOU(true, pred):
+ #1,837,847
+ pred_new = tf.argmax(pred, axis=-1)
+ pred_new = pred_new[..., tf.newaxis]
+ pred_new = tf.dtypes.cast(pred_new, tf.float32)
+ metric = 0.0
+ intersection = tf.keras.backend.sum(pred_new * true, axis = [-1, -2, -3])
+ the_sum = tf.keras.backend.sum(pred_new + true, axis = [-1, -2, -3])
+ union = the_sum - intersection
+ iou = (intersection + 1e-12)/(union + 1e-12)
+ metric = tf.keras.backend.mean(iou)
+ return metric
+
 def create_unet_model(W, H, input_ch ,output_ch):
  inputs = tf.keras.layers.Input(shape = (W, H, input_ch))
  #downsampling
@@ -199,13 +213,18 @@ def create_unet_model(W, H, input_ch ,output_ch):
  print("OK")
  return model
 
+def printTime():
+ now = datetime.now()
 
+ current_time = now.strftime("%H:%M:%S")
+ print("Current Time =", current_time)
 
 zi = zipfile.ZipFile("dstl-satellite-imagery-feature-detection/three_band.zip")
 
-
+printTime()
 #plt.show()
 #read polygon data
+
 zitr = zipfile.ZipFile("dstl-satellite-imagery-feature-detection/train_wkt_v4.csv.zip")
 fl = zitr.open(zitr.namelist()[0])
 train = pd.read_csv(fl)
@@ -233,7 +252,7 @@ for i in range(0, len(build["ImageId"])//numberOfObjects*10, 10):
 poly_pix = {}
 indexes = ["1", "3", "9", "10"]
 masks = {}
-
+dirname = ''
 for i in range(0, numberOfObjects):
  dirname = dirname + indexes[i]
 
@@ -259,18 +278,23 @@ if not os.path.exists('./%s' % dirname):
 else:
  for key in train_images:
   with open('./%s/%s.npy' % (dirname, key), 'rb') as f:
-   masks[key] = np.load(f, masks[key])
+   masks[key] = np.load(f)
 
-W = 3348
+#W = 3348
 #H = 3391
-H = 3388
+#H = 3388
+W = 3352
+H = 3392
 masks_numpy = []
 
 train_images_numpy = []
-
+parts = 8
 for key in train_images:
  im = re_shape(train_images[key], W, H)
- train_images_numpy.append(im[0:W//4, 0:H//4])
+ for i in range(0, parts):
+  for j in range(0, parts):
+   train_images_numpy.append(im[j*W//parts:(j+1)*W//parts, i*H//parts:(i+1)*H//parts])
+ """ train_images_numpy.append(im[0:W//4, 0:H//4])
  train_images_numpy.append(im[W//4:2*W//4, 0:H//4])
  train_images_numpy.append(im[2*W//4:3*W//4, 0:H//4])
  train_images_numpy.append(im[3*W//4:W, 0:H//4])
@@ -288,12 +312,14 @@ for key in train_images:
  train_images_numpy.append(im[0:W//4, 3*H//4:H])
  train_images_numpy.append(im[W//4:2*W//4, 3*H//4:H])
  train_images_numpy.append(im[2*W//4:3*W//4, 3*H//4:H])
- train_images_numpy.append(im[3*W//4:W, 3*H//4:H]) 
+ train_images_numpy.append(im[3*W//4:W, 3*H//4:H]) """
  
 
  ma = re_shape(masks[key], W, H)
- 
- masks_numpy.append(ma[0:W//4, 0:H//4])
+ for i in range(0, parts):
+  for j in range(0, parts):
+   masks_numpy.append(ma[j*W//parts:(j+1)*W//parts, i*H//parts:(i+1)*H//parts])
+ """masks_numpy.append(ma[0:W//4, 0:H//4])
  masks_numpy.append(ma[W//4:2*W//4, 0:H//4])
  masks_numpy.append(ma[2*W//4:3*W//4, 0:H//4])
  masks_numpy.append(ma[3*W//4:W, 0:H//4])
@@ -311,7 +337,7 @@ for key in train_images:
  masks_numpy.append(ma[0:W//4, 3*H//4:H])
  masks_numpy.append(ma[W//4:2*W//4, 3*H//4:H])
  masks_numpy.append(ma[2*W//4:3*W//4, 3*H//4:H])
- masks_numpy.append(ma[3*W//4:W, 3*H//4:H]) 
+ masks_numpy.append(ma[3*W//4:W, 3*H//4:H]) """
  
  print("masks: ")
  print(masks[key].shape)
@@ -334,29 +360,103 @@ masks_numpy = np.array(masks_numpy)
  #plt.imshow(tf.keras.preprocessing.image.array_to_img(masks[key]))
  #plt.show()
 #6120_2_2
-plt.figure(figsize=(10,10)) 
+"""plt.figure(figsize=(10,10)) 
 plt.subplot(2,2, 1)
-plt.imshow(train_images_numpy[16])
+plt.imshow(train_images_numpy[70])
 plt.subplot(2,2, 2)
-plt.imshow(tf.keras.preprocessing.image.array_to_img(masks_numpy[16]))
+plt.imshow(tf.keras.preprocessing.image.array_to_img(masks_numpy[70]))
 plt.subplot(2,2, 3)
-plt.imshow(train_images_numpy[17])
+plt.imshow(train_images_numpy[71])
 plt.subplot(2,2, 4)
-plt.imshow(tf.keras.preprocessing.image.array_to_img(masks_numpy[17]))
-plt.show()
-#labels = tf.keras.utils.to_categorical(masks_numpy, num_classes=5)
+plt.imshow(tf.keras.preprocessing.image.array_to_img(masks_numpy[71]))
+plt.show()"""
+#labels = tf.keras.utils.to_categorical(masks_numpy, num_classes=2)
 print(masks_numpy.shape)
 print(train_images_numpy.shape)
+
+#train test sets
+arr = np.arange(masks_numpy.shape[0])
+print(arr)
+np.random.shuffle(arr)
+test_images = []
+test_masks = []
+train_images = []
+train_masks = []
+spliting = int(len(arr) * 0.2)
+for i in range(0, spliting):
+ test_images.append(train_images_numpy[arr[i]])
+ test_masks.append(masks_numpy[arr[i]])
+for i in range(spliting, len(arr)):
+ train_images.append(train_images_numpy[arr[i]])
+ train_masks.append(masks_numpy[arr[i]])
+del masks_numpy
+del train_images_numpy
+test_images = np.array(test_images)
+test_masks = np.array(test_masks)
+train_images = np.array(train_images)
+train_masks = np.array(train_masks)
+
+print(test_images.shape)
+print(test_masks.shape)
+print(train_images.shape)
+print(train_masks.shape)
 #print(labels.shape)
 #del masks_numpy
-model = create_unet_model(W//4, H//4, 3, 2)
+model = create_unet_model(W//parts, H//parts, 3, 2)
 model.compile(optimizer='adam',
               loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-              metrics=[tf.keras.metrics.MeanIoU(num_classes=2),'accuracy'])
+              metrics=[myIOU, 'accuracy'])
 
-
-EPOCHS = 10
+#tf.keras.metrics.MeanIoU(num_classes=2)
+EPOCHS = 30
 #classy = {0: 0.5, 1: 1.0, 2: 100.0, 3: 1000.0, 4: 10000.0}
-model.fit(train_images_numpy, masks_numpy, 1, epochs=EPOCHS)
+printTime()
+BATCH_SIZE = 4
+history = model.fit(train_images, train_masks, BATCH_SIZE, epochs=EPOCHS, validation_split = 0.2)
 
 model.save('saved_model3/my_model')
+printTime()
+losse, ioue, acce = model.evaluate(test_images, test_masks, BATCH_SIZE)
+print("Loss: ", losse)
+print("Iou: ", ioue)
+print("Acc: ", acce) 
+printTime()
+#check history
+history_dict = history.history
+print(history_dict.keys())
+
+acc = history_dict['accuracy']
+val_acc = history_dict['val_accuracy']
+loss = history_dict['loss']
+val_loss = history_dict['val_loss'] 
+iou = history_dict['myIOU']
+val_iou = history_dict['val_myIOU']
+
+epochs = range(1, len(acc) + 1)
+
+plt.plot(epochs, loss, 'bo', label='Training loss')
+plt.plot(epochs, val_loss, 'b', label='Validation loss')
+plt.title('Training and validation loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.show()
+
+plt.plot(epochs, acc, 'bo', label='Training acc')
+plt.plot(epochs, val_acc, 'b', label='Validation acc')
+plt.title('Training and validation accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend(loc='lower right')
+
+plt.show()
+
+plt.plot(epochs, iou, 'bo', label='Training iou')
+plt.plot(epochs, val_iou, 'b', label='Validation iou')
+plt.title('Training and validation iou')
+plt.xlabel('Epochs')
+plt.ylabel('Iou')
+plt.legend(loc='lower right')
+
+plt.show()

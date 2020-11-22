@@ -1,26 +1,29 @@
-
+import tensorflow as tf
+import tensorflow.keras.backend as K
 import os
 import numpy as np
 
-indexes = ["1", "3", "9", "10"]
-numberOfObjects = 1
-dirname = ''
-for i in range(0, numberOfObjects):
- dirname = dirname + indexes[i]
+y_true = tf.constant([[[[3.0, 1.0], [2.0, 2.0]], [[2.0, 2.0], [6.0, 6.0]]], [[[3.0, 3.0], [7.0, 7.0]], [[4.0, 4.0], [5.0, 6.0]]]])
+print(y_true[0][1])
 
+#intersection = K.sum(y_true * y_pred, axis=[0, -1, -2])
+#sum_ = K.sum(y_true + y_pred, axis=[0, -1, -2])
+suma = tf.keras.backend.sum(y_true, axis=[0,-1, -2])
+print(suma)
+print(tf.keras.backend.mean(suma))
 
-if not os.path.exists('./%s' % dirname):
- os.mkdir('./%s' % dirname)
+metric = 0.0
+pred = 1.2
+true = 0
 
-key = '2134_43'
-#x = np.arange(10)
+if true == 0:
+ metric += pred
+ print("Cia")
 
-#np.save('./%s/%s' % (dirname, key), x)
+print(pred)
+print(metric)
 
-
-with open('./%s/%s.npy' % (dirname, key), 'rb') as f:
- x = np.load(f)
-print(x)
-
-
-
+arr = np.arange(21)
+print(arr)
+np.random.shuffle(arr)
+print(arr)

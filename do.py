@@ -107,6 +107,19 @@ def re_shape(image, W, H):
    image = np.concatenate((image, temp), axis = 1)
  return image
 
+def myIOU(true, pred):
+ #1,837,847
+ pred_new = tf.argmax(pred, axis=-1)
+ pred_new = pred_new[..., tf.newaxis]
+ pred_new = tf.dtypes.cast(pred_new, tf.float32)
+ metric = 0.0
+ intersection = tf.keras.backend.sum(pred_new * true, axis = [-1, -2, -3])
+ the_sum = tf.keras.backend.sum(pred_new + true, axis = [-1, -2, -3])
+ union = the_sum - intersection
+ iou = (intersection + 1e-12)/(union + 1e-12)
+ metric = tf.keras.backend.mean(iou)
+ return metric
+
 def create_unet_model(W, H, input_ch ,output_ch):
  inputs = tf.keras.layers.Input(shape = (W, H, input_ch))
  #downsampling
@@ -260,13 +273,13 @@ W = 3348
 H = 3390
 #masks_numpy = []
 
-W = 3348
-H = 3388
+W = 3352
+H = 3392
 train_images_numpy = []
 
 for key in image:
  im = re_shape(image[key], W, H)
- train_images_numpy.append(im[W//4:2*W//4, 0:H//4])
+ train_images_numpy.append(im[5*W//8:6*W//8, 0*H//8:1*H//8])
  #ma = re_shape(masks[key], W, H)
  #masks_numpy.append(ma[0:W//4, 0:H//4])
 """ train_images_numpy.append(im[W//4:2*W//4, 0:H//4])
@@ -343,7 +356,7 @@ EPOCHS = 20
 model.fit(train_images_numpy, masks_numpy, 1, epochs=EPOCHS)
 
 model.save('saved_model/my_model')"""
-new_model = tf.keras.models.load_model('saved_model/my_model')
+new_model = tf.keras.models.load_model('saved_model3/my_model', custom_objects={'myIOU':myIOU})
 tf.keras.utils.plot_model(new_model, show_shapes=True, dpi=64)
 mas = new_model.predict(train_images_numpy)
 print(mas.shape)
